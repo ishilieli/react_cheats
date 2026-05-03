@@ -472,6 +472,103 @@ useEffect(() => {
 const fullName = `${firstName} ${lastName}`;
 ```
 
+### Антипаттерн: зеркалирование пропа в state через useEffect
+
+Очень частая ошибка: получили `currentState` пропом и сразу копируют его в локальный state «чтобы можно было редактировать».
+
+```tsx
+// ❌ так делать не надо
+function ProfileForm({ currentState }: { currentState: FormState }) {
+  const [formState, setFormState] = useState(currentState);
+
+  useEffect(() => {
+    setFormState(currentState);
+  }, [currentState]);
+
+  console.log('render, formState =', formState);
+
+  return <input value={formState.name} onChange={/* ... */} />;
+}
+```
+
+**Что здесь не так.** Каждый раз, когда родитель меняет `currentState`, происходит **два рендера подряд** и **один кадр со старыми данными на экране**.
+
+Разберём по шагам — представим, что родитель меняет `currentState.name` с `'Аня'` на `'Боря'`.
+
+| #   | Что происходит                                                                  | Что видно в консоли                  |
+|-----|---------------------------------------------------------------------------------|--------------------------------------|
+| 1   | Родитель ре-рендерится с новым пропом `{name: 'Боря'}`                          | —                                    |
+| 2   | `ProfileForm` рендерится: prop = `Боря`, но `formState` ещё `Аня` (старый!)     | `render, formState = {name: 'Аня'}`  |
+| 3   | React коммитит DOM — на экране на один кадр остаётся **старая** «Аня»           | —                                    |
+| 4   | Запускается `useEffect`, видит, что `currentState` изменился, зовёт `setFormState(currentState)` | —                          |
+| 5   | Стейт изменился → ещё один рендер: `formState` = `Боря`                          | `render, formState = {name: 'Боря'}` |
+| 6   | React коммитит DOM — на экране наконец «Боря»                                   | —                                    |
+
+То есть: **на каждое изменение пропа делается лишний рендер, а пользователь успевает увидеть устаревшие данные**. На быстрой машине это незаметно, но баг есть всегда — проявляется он на медленных устройствах, при больших списках и в тестах (`render` в Testing Library покажет промежуточное состояние).
+
+Плюс есть второй, более коварный сценарий: пользователь успел набрать что-то в инпут (поменял `formState`), а в этот момент родитель прислал новый `currentState` — эффект перетрёт **введённое пользователем** значение. Проигранные правки — классическая жалоба «сайт сам стирает то, что я печатал».
+
+#### Как исправить — три варианта по убыванию частоты
+
+**1. Не копируйте — используйте prop напрямую.** В 90% случаев локальный state вообще не нужен:
+
+```tsx
+// ✅
+function ProfileForm({ currentState, onChange }: {
+  currentState: FormState;
+  onChange: (next: FormState) => void;
+}) {
+  return (
+    <input
+      value={currentState.name}
+      onChange={e => onChange({ ...currentState, name: e.target.value })}
+    />
+  );
+}
+```
+
+Состояние живёт в родителе — это [поднятие состояния](#17-поднятие-состояния-lifting-state-up). Один источник правды, никаких рассинхронов.
+
+**2. Нужен «черновик» для редактирования? Используйте `key` для сброса.** Допустим, форма редактирует пользователя, и при выборе **другого** пользователя черновик надо сбросить:
+
+```tsx
+// родитель
+<ProfileForm key={user.id} initialState={user} />
+```
+
+Внутри:
+
+```tsx
+function ProfileForm({ initialState }: { initialState: FormState }) {
+  const [formState, setFormState] = useState(initialState); // ← без useEffect!
+  // ...
+}
+```
+
+Когда `key` меняется, React **уничтожает** старый компонент и монтирует новый — `useState(initialState)` возьмёт свежее значение. Никаких эффектов и лишних рендеров.
+
+**3. Действительно нужно сравнивать prop с локальным состоянием?** Это редкий случай, но если он есть — считайте на лету **в рендере**, без эффекта:
+
+```tsx
+// ✅ "previous prop" pattern
+function ProfileForm({ currentState }: { currentState: FormState }) {
+  const [formState, setFormState] = useState(currentState);
+  const [prevProp, setPrevProp] = useState(currentState);
+
+  if (currentState !== prevProp) {
+    setPrevProp(currentState);
+    setFormState(currentState); // сброс черновика при смене пропа
+  }
+  // ...
+}
+```
+
+React видит `setState` прямо в рендере, отбрасывает текущий результат и сразу запускает новый рендер — без коммита промежуточного DOM и без двойного эффекта. Это поддерживаемый паттерн (см. [react.dev: Adjusting state on prop change](https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)), но используйте его только когда первые два варианта не подходят.
+
+#### Эмпирическое правило
+
+> Если внутри `useEffect` ты пишешь `setX(...)` без условий и без асинхронных вызовов — почти всегда это лишний эффект. Сначала спроси: «Можно ли вычислить это прямо в рендере? Можно ли поднять state в родителя? Можно ли сбросить через `key`?»
+
 ---
 
 ## 12. useRef — ссылка на DOM и мутабельное значение
