@@ -315,6 +315,116 @@ function Form() {
 <button onClick={() => deleteItem(item.id)} />
 ```
 
+<a id="keyboard-events"></a>
+
+### Клавиатурные события: keydown, keyup, keypress
+
+У клавиатуры **три** разных события, и они ведут себя по-разному. Самая частая ошибка:
+
+```tsx
+// ❌ так не сработает — Esc не вызовет handleEsc
+window.addEventListener('keypress', handleEsc);
+```
+
+**Почему `keypress` не ловит Esc.** Событие `keypress` отрабатывает только на клавишах, которые **производят символ** (буквы, цифры, пробел). Esc, Tab, Backspace, Delete, стрелки, F1–F12, Shift, Ctrl, Alt, Enter в части браузеров — символа не производят, поэтому `keypress` не срабатывает. К тому же `keypress` **deprecated** — он удалён из современной спецификации и в новых браузерах его поддержка не гарантируется.
+
+Используйте `keydown` (или `keyup`):
+
+| Событие     | Когда срабатывает                                  | Стоит ли использовать |
+|-------------|----------------------------------------------------|-----------------------|
+| `keydown`   | Сразу при нажатии **любой** клавиши; авто-повтор при удержании | ✅ да, в большинстве случаев |
+| `keyup`     | При отпускании клавиши                             | ✅ для «после ввода»  |
+| `keypress`  | Только для символьных клавиш, **deprecated**       | ❌ нет, никогда       |
+
+Какую клавишу нажали — смотрите в `e.key` (строка с именем клавиши). `e.keyCode` и `e.which` тоже **deprecated**, не используйте их.
+
+```tsx
+// ✅ правильный обработчик Esc
+function handleEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeModal();
+}
+window.addEventListener('keydown', handleEsc);
+```
+
+#### Частые значения `e.key`
+
+| Клавиша        | `e.key`           |
+|----------------|-------------------|
+| Esc            | `'Escape'`        |
+| Enter          | `'Enter'`         |
+| Пробел         | `' '` (пробел!)   |
+| Tab            | `'Tab'`           |
+| Backspace      | `'Backspace'`     |
+| Delete         | `'Delete'`        |
+| Стрелки        | `'ArrowUp'`, `'ArrowDown'`, `'ArrowLeft'`, `'ArrowRight'` |
+| Буква «а»      | `'a'` (нижний регистр, если без Shift) |
+| Цифра «1»      | `'1'`             |
+
+#### Два сценария в React
+
+**1. Клавиша внутри инпута / на конкретном элементе** — обработчик в JSX:
+
+```tsx
+function SearchBox() {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      submitSearch();
+    } else if (e.key === 'Escape') {
+      e.currentTarget.blur();
+    }
+  }
+
+  return <input onKeyDown={handleKeyDown} />;
+}
+```
+
+Тип события — `React.KeyboardEvent<HTMLInputElement>` (а не нативный `KeyboardEvent`).
+
+**2. Глобальный шорткат** (закрыть модалку по Esc, открыть поиск по Ctrl+K) — нужен слушатель на `window`. Вешайте его в `useEffect` и **обязательно** убирайте в cleanup:
+
+```tsx
+import { useEffect } from 'react';
+
+function Modal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return <div className="modal">…</div>;
+}
+```
+
+Здесь тип уже **нативный** `KeyboardEvent` (без префикса `React.`), потому что слушатель навешан напрямую на `window`, а не через JSX.
+
+⚠️ Без `removeEventListener` в cleanup при каждом ре-рендере добавляется новый слушатель — в итоге Esc будет срабатывать N раз, и появятся утечки.
+
+#### Сочетания клавиш и модификаторы
+
+```tsx
+function handleKeyDown(e: KeyboardEvent) {
+  // Ctrl+K (или Cmd+K на macOS) — открыть поиск
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();   // отменить дефолт браузера
+    openSearch();
+  }
+}
+```
+
+Доступные флаги: `e.ctrlKey`, `e.shiftKey`, `e.altKey`, `e.metaKey` (Cmd на Mac, Win на Windows).
+
+#### Чек-лист
+
+- ❌ Не пишите `keypress` — он мёртв.
+- ✅ Слушайте `keydown` для шорткатов и навигации, `keyup` — если нужно реагировать после отпускания клавиши.
+- ✅ Сравнивайте через `e.key === 'Escape'`, а не `e.keyCode === 27`.
+- ✅ Глобальные слушатели — только в `useEffect` и **с cleanup**.
+- ✅ Не забывайте `e.preventDefault()` для шорткатов, которые перебивают поведение браузера (Ctrl+S, Ctrl+K, Tab внутри редактора и т. п.).
+
 ---
 
 <a id="conditional-rendering"></a>
