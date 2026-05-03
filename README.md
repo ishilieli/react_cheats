@@ -8,28 +8,30 @@
 
 ## Оглавление
 
-1. [Что такое React](#1-что-такое-react)
-2. [Старт проекта (Vite + TS)](#2-старт-проекта-vite--ts)
-3. [JSX](#3-jsx)
-4. [Компоненты](#4-компоненты)
-5. [Пропсы (props)](#5-пропсы-props)
-6. [Состояние: useState](#6-состояние-usestate)
-7. [Обработка событий](#7-обработка-событий)
-8. [Условный рендеринг](#8-условный-рендеринг)
-9. [Списки и ключи](#9-списки-и-ключи)
-10. [Формы (controlled inputs)](#10-формы-controlled-inputs)
-11. [useEffect — сайд-эффекты](#11-useeffect--сайд-эффекты)
-12. [useRef — ссылка на DOM и мутабельное значение](#12-useref--ссылка-на-dom-и-мутабельное-значение)
-13. [useContext — общий контекст](#13-usecontext--общий-контекст)
-14. [useReducer — сложное состояние](#14-usereducer--сложное-состояние)
-15. [useMemo и useCallback — мемоизация](#15-usememo-и-usecallback--мемоизация)
-16. [Кастомные хуки](#16-кастомные-хуки)
-17. [Поднятие состояния (lifting state up)](#17-поднятие-состояния-lifting-state-up)
-18. [Композиция через children](#18-композиция-через-children)
-19. [Работа с API](#19-работа-с-api)
-20. [Типичные ошибки новичков](#20-типичные-ошибки-новичков)
+1. [Что такое React](#intro)
+2. [Старт проекта (Vite + TS)](#quickstart)
+3. [JSX](#jsx)
+4. [Компоненты](#components)
+5. [Пропсы (props)](#props)
+6. [Состояние: useState](#usestate)
+7. [Обработка событий](#events)
+8. [Условный рендеринг](#conditional-rendering)
+9. [Списки и ключи](#lists-keys)
+10. [Формы (controlled inputs)](#forms)
+11. [useEffect — сайд-эффекты](#useeffect)
+12. [useRef — ссылка на DOM и мутабельное значение](#useref)
+13. [useContext — общий контекст](#usecontext)
+14. [useReducer — сложное состояние](#usereducer)
+15. [useMemo и useCallback — мемоизация](#memoization)
+16. [Кастомные хуки](#custom-hooks)
+17. [Поднятие состояния (lifting state up)](#lifting-state)
+18. [Композиция через children](#composition)
+19. [Работа с API](#api)
+20. [Типичные ошибки новичков](#common-mistakes)
 
 ---
+
+<a id="intro"></a>
 
 ## 1. Что такое React
 
@@ -43,6 +45,8 @@ React — библиотека для построения UI из переис�
 - **Виртуальный DOM + reconciliation.** React сравнивает новое дерево элементов со старым и точечно обновляет реальный DOM.
 
 ---
+
+<a id="quickstart"></a>
 
 ## 2. Старт проекта (Vite + TS)
 
@@ -78,6 +82,8 @@ export default function App() {
 `StrictMode` в dev-режиме намеренно вызывает компоненты и эффекты дважды — это помогает поймать побочные эффекты в местах, где их быть не должно. На продакшен-сборку не влияет.
 
 ---
+
+<a id="jsx"></a>
 
 ## 3. JSX
 
@@ -121,6 +127,8 @@ function Card() {
 
 ---
 
+<a id="components"></a>
+
 ## 4. Компоненты
 
 Компонент — функция, возвращающая JSX. Имя обязательно с **большой буквы** (с маленькой React сочтёт это HTML-тегом).
@@ -152,6 +160,8 @@ function Page() {
 ```
 
 ---
+
+<a id="props"></a>
 
 ## 5. Пропсы (props)
 
@@ -196,6 +206,8 @@ function Card({ children }: CardProps) {
 ```
 
 ---
+
+<a id="usestate"></a>
 
 ## 6. Состояние: useState
 
@@ -251,6 +263,8 @@ const [user, setUser] = useState<User | null>(null);    // объединени�
 
 ---
 
+<a id="events"></a>
+
 ## 7. Обработка событий
 
 События в JSX называются в camelCase, в обработчик передаётся **синтетическое событие** React (обёртка над нативным).
@@ -303,6 +317,8 @@ function Form() {
 
 ---
 
+<a id="conditional-rendering"></a>
+
 ## 8. Условный рендеринг
 
 ```tsx
@@ -335,6 +351,8 @@ function Page({ user }: { user: User | null }) {
 
 ---
 
+<a id="lists-keys"></a>
+
 ## 9. Списки и ключи
 
 Массивы JSX-элементов рендерятся как есть.
@@ -361,6 +379,8 @@ function TodoList({ todos }: { todos: Todo[] }) {
 - ✅ Используйте `id` из данных. Если `id` нет — генерируйте при создании элемента (например, `crypto.randomUUID()`), а не на каждом рендере.
 
 ---
+
+<a id="forms"></a>
 
 ## 10. Формы (controlled inputs)
 
@@ -420,6 +440,8 @@ function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
 
 ---
 
+<a id="useeffect"></a>
+
 ## 11. useEffect — сайд-эффекты
 
 `useEffect` запускает код **после** того, как React отрисовал компонент. Нужен для синхронизации с внешним миром: подписки, таймеры, запросы, прямые манипуляции с DOM.
@@ -471,6 +493,8 @@ useEffect(() => {
 // ✅ просто посчитайте
 const fullName = `${firstName} ${lastName}`;
 ```
+
+<a id="mirror-prop-antipattern"></a>
 
 ### Антипаттерн: зеркалирование пропа в state через useEffect
 
@@ -571,6 +595,8 @@ React видит `setState` прямо в рендере, отбрасывает
 
 ---
 
+<a id="useref"></a>
+
 ## 12. useRef — ссылка на DOM и мутабельное значение
 
 `useRef` возвращает объект `{ current: ... }`, который **сохраняется между рендерами** и **не вызывает ре-рендер при изменении**.
@@ -626,6 +652,8 @@ function Timer() {
 | Подходит для таймеров/id | нет (избыточно) | да               |
 
 ---
+
+<a id="usecontext"></a>
 
 ## 13. useContext — общий контекст
 
