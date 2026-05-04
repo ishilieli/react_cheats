@@ -957,6 +957,102 @@ function ResultsList({ query }: { query: string }) {
 
 Правило: храните состояние **на минимально возможном уровне**, общем для всех, кому оно нужно. Не выше, не ниже.
 
+<a id="dont-lift-too-high"></a>
+
+### Поднимайте данные, а не обработчики
+
+Освоив lifting state up, студенты часто делают шаг лишку — поднимают в родителя ещё и обработчики, которые относятся к самому ребёнку. Получается так:
+
+```tsx
+// ❌ App знает про "применить" и "сбросить" — это семантика формы, не App
+type Filters = { search: string; remote: boolean };
+const defaultFilters: Filters = { search: '', remote: false };
+
+function App() {
+  const [filters, setFilters] = useState(defaultFilters);
+
+  const handleApply = (next: Filters) => setFilters(next);
+  const handleReset = () => setFilters(defaultFilters);
+
+  return (
+    <>
+      <FilterPanel
+        currentFilters={filters}
+        onApply={handleApply}
+        onReset={handleReset}
+      />
+      <JobsList filters={filters} />
+    </>
+  );
+}
+```
+
+Что не так:
+
+- `handleApply` — пустая обёртка вокруг `setFilters`.
+- `handleReset` — это **внутренняя логика панели фильтров**: что считать «сбросом», какие поля до каких значений возвращать. App не обязан это знать.
+- Завтра у формы появится третья кнопка («сбросить только зарплату», «применить и сохранить в URL») — снова придётся править App.
+
+App должен владеть только тем, что нужно нескольким соседям. Здесь это `filters` — их читает `JobsList`. Всё остальное (черновик, кнопки, дефолты, валидация) остаётся внутри формы.
+
+```tsx
+// ✅ App отдаёт форме только данные и способ их обновить
+function App() {
+  const [filters, setFilters] = useState(defaultFilters);
+
+  return (
+    <>
+      <FilterPanel value={filters} onChange={setFilters} />
+      <JobsList filters={filters} />
+    </>
+  );
+}
+
+function FilterPanel({ value, onChange }: {
+  value: Filters;
+  onChange: (next: Filters) => void;
+}) {
+  // черновик живёт внутри формы: пока пользователь печатает,
+  // фильтры снаружи не меняются — изменятся только по «Применить»
+  const [draft, setDraft] = useState(value);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onChange(draft);
+  }
+
+  function handleReset() {
+    setDraft(defaultFilters);
+    onChange(defaultFilters);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={draft.search}
+        onChange={e => setDraft({ ...draft, search: e.target.value })}
+      />
+      <label>
+        <input
+          type="checkbox"
+          checked={draft.remote}
+          onChange={e => setDraft({ ...draft, remote: e.target.checked })}
+        />
+        Удалёнка
+      </label>
+      <button type="button" onClick={handleReset}>Сбросить</button>
+      <button type="submit">Применить</button>
+    </form>
+  );
+}
+```
+
+App теперь не знает, что внутри панели есть «применить», «сбросить» и вообще черновик — это её внутреннее устройство. Завтра форма переедет на `useReducer`, обзаведётся валидацией или дебаунсом — снаружи ничего не поменяется. Это и есть **инкапсуляция**: компонент скрывает свою кухню за минимальным интерфейсом (`value` + `onChange`).
+
+#### Эмпирическое правило
+
+> Если callback в родителе выглядит как `(x) => setSomething(x)` или `() => setSomething(default)` — почти наверняка вы вынесли наружу логику, принадлежащую ребёнку. Отдайте сеттер напрямую (`onChange={setFilters}`), а ветвления «применить / сбросить / отменить» оставьте там, где живут кнопки.
+
 ---
 
 <a id="composition"></a>
